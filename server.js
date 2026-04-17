@@ -24,8 +24,12 @@ app.post("/send", async (req, res) => {
       token: token
     };
 
-    await admin.messaging().send(payload);
+    const response = await admin.messaging().send(payload);
 
-    res.send("Notification sent");
+    console.log("Sent:", response);
+    res.status(200).send("Notification sent");
   } catch (error) {
-    console
+    console.error("FCM Error:", error);
+    res.status(500).send(error.message);
+  }
+});

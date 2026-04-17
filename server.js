@@ -44,7 +44,7 @@ app.post("/send", async (req, res) => {
 });
 
 // 🔥 THIS WAS MISSING (critical fix)
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

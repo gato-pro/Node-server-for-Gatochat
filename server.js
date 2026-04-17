@@ -4,21 +4,43 @@ const admin = require("firebase-admin");
 const app = express();
 app.use(express.json());
 
-// Firebase admin init
-const serviceAccount = require("./serviceAccountKey.json");
+// -----------------------------
+// Firebase Admin Init (safe)
+// -----------------------------
+try {
+  const serviceAccount = require("./serviceAccountKey.json");
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+
+  console.log("Firebase initialized successfully");
+} catch (err) {
+  console.error("Firebase init failed:", err);
+}
+
+// -----------------------------
+// Request Logger (IMPORTANT DEBUG TOOL)
+// -----------------------------
+app.use((req, res, next) => {
+  console.log(`Incoming request: ${req.method} ${req.url}`);
+  next();
 });
 
-// Health check route (good for Render)
+// -----------------------------
+// Health check route
+// -----------------------------
 app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
+// -----------------------------
 // Send notification route
+// -----------------------------
 app.post("/send", async (req, res) => {
   try {
+    console.log("BODY:", req.body);
+
     const { token, message } = req.body;
 
     if (!token || !message) {
@@ -26,25 +48,27 @@ app.post("/send", async (req, res) => {
     }
 
     const payload = {
+      token: token,
       notification: {
         title: "New Message",
         body: message
-      },
-      token: token
+      }
     };
 
     const response = await admin.messaging().send(payload);
 
-    console.log("Sent:", response);
+    console.log("FCM SUCCESS:", response);
     res.status(200).send("Notification sent");
   } catch (error) {
-    console.error("FCM Error:", error);
+    console.error("FCM ERROR:", JSON.stringify(error, null, 2));
     res.status(500).send(error.message);
   }
 });
 
-// 🔥 THIS WAS MISSING (critical fix)
-const PORT = process.env.PORT || 10000;
+// -----------------------------
+// Start server (Render safe)
+// -----------------------------
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

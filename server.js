@@ -5,22 +5,34 @@ const app = express();
 app.use(express.json());
 
 // -----------------------------
-// Firebase Admin Init (safe)
+// Firebase Init (SAFE + STRICT)
 // -----------------------------
+let firebaseReady = false;
+
 try {
   const serviceAccount = require("./serviceAccountKey.json");
 
+  if (!serviceAccount || !serviceAccount.private_key) {
+    throw new Error("Invalid serviceAccountKey.json file");
+  }
+
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
+    credential: admin.credential.cert(serviceAccount),
   });
 
+  firebaseReady = true;
+
   console.log("Firebase initialized successfully");
+  console.log("PROJECT:", serviceAccount.project_id);
+  console.log("CLIENT:", serviceAccount.client_email);
+
 } catch (err) {
-  console.error("Firebase init failed:", err);
+  console.error("❌ Firebase initialization FAILED:");
+  console.error(err.message);
 }
 
 // -----------------------------
-// Request Logger (IMPORTANT DEBUG TOOL)
+// Middleware
 // -----------------------------
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
@@ -28,45 +40,50 @@ app.use((req, res, next) => {
 });
 
 // -----------------------------
-// Health check route
+// Health route
 // -----------------------------
 app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
 // -----------------------------
-// Send notification route
+// Send Notification
 // -----------------------------
 app.post("/send", async (req, res) => {
-  try {
-    console.log("BODY:", req.body);
+  console.log("BODY:", req.body);
 
+  if (!firebaseReady) {
+    return res.status(500).send("Firebase not initialized on server");
+  }
+
+  try {
     const { token, message } = req.body;
 
     if (!token || !message) {
-      return res.status(400).send("token and message are required");
+      return res.status(400).send("token and message required");
     }
 
     const payload = {
       token: token,
       notification: {
         title: "New Message",
-        body: message
-      }
+        body: message,
+      },
     };
 
     const response = await admin.messaging().send(payload);
 
     console.log("FCM SUCCESS:", response);
     res.status(200).send("Notification sent");
+
   } catch (error) {
-    console.error("FCM ERROR:", JSON.stringify(error, null, 2));
+    console.error("FCM ERROR:", error);
     res.status(500).send(error.message);
   }
 });
 
 // -----------------------------
-// Start server (Render safe)
+// Start server
 // -----------------------------
 const PORT = process.env.PORT || 3000;
 
